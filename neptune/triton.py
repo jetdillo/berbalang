@@ -46,7 +46,7 @@ class Triton:
                   }
 
       #_exp_name=_exp_config['population_name']
-      _exp_name="scute-halux-orbit-naris"
+      _exp_name="zygapoph-fenestra-squamate-condyl"
 
       neptune.init(self.exp_pqn,api_token=None) 
       self.experiment=neptune.create_experiment(name=_exp_name,params=_exp_params)
@@ -68,9 +68,10 @@ class Triton:
 
        return tuple(_session,_project,_exp)
  
-   def log_stats_to_experiment(self,stats,path):
+   def log_stats_to_experiment(self,logtype,names,stats,path):
   
       for s in range(0,len(stats)):
-         metric_num=str(s)
-         metric_name=str("metric_"+metric_num)
+         #metric_num=str(s)
+         #metric_name=str("metric_"+metric_num)
+         metric_name=str(logtype+"_"+names[s])
          self.experiment.log_metric(metric_name,stats[s])   
