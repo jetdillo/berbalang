@@ -25,16 +25,40 @@ class Triton:
 
       self.config_toml = toml.load(path)
 
-   def read_berb_log(self,path):
+   def read_json_log(self,path):
 
       with open(path) as log:
          jl=json.load(log)
       return jl
 
-   def build_experiment(self):
+   def build_json_experiment(self):
+      
+      _exp_config = self.config_toml
+      
+      #This is a bit messy, but more literate, IMO
+  
+      _exp_params={'num_islands': _exp_config['num_islands'],'mutation_rate': _exp_config['mutation_rate'],
+                 'mutation_exponent': _exp_config['mutation_exponent'],
+                 'crossover_period': _exp_config['crossover_period'],
+                 'crossover_rate': _exp_config['crossover_rate'],
+                 'max_init_len': _exp_config['max_init_len'],
+                 'min_init_len': _exp_config['min_init_len'],
+                 'pop_size': _exp_config['pop_size'],
+                 'max_length': _exp_config['max_length']
+                 }
+    
+      _exp_json=read_json_log(json_path)
+      _exp_name=exp_json['chromosome']['name']
+      _exp_desc=str(exp_json['tag'])
+      
+i     neptune.init(self.exp_pqn,api_token=None) 
+
+      self.experiment=neptune.create_experiment(name=_exp_name,params=_exp_params)
+
+   def build_csv_experiment(self):
       _exp_config = self.config_toml
       exp_number=1
-      #This is a bit messy, but more literal
+
       _exp_params={'num_islands': _exp_config['num_islands'],'mutation_rate': _exp_config['mutation_rate'],
                   'mutation_exponent': _exp_config['mutation_exponent'],
                   'crossover_period': _exp_config['crossover_period'],
@@ -68,10 +92,10 @@ class Triton:
 
        return tuple(_session,_project,_exp)
  
-   def log_stats_to_experiment(self,logtype,names,stats,path):
+   def log_stats_to_experiment(self,logtype,names,stats,path,island):
   
       for s in range(0,len(stats)):
          #metric_num=str(s)
          #metric_name=str("metric_"+metric_num)
-         metric_name=str(logtype+"_"+names[s])
+         metric_name=str(island+"_"+logtype+"_"+names[s])
          self.experiment.log_metric(metric_name,stats[s])   

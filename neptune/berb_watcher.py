@@ -12,7 +12,7 @@ from watchdog.events import PatternMatchingEventHandler
 
 write_count=0
 current_epoch=0
-island="island_0"
+island_str="island_0"
 log_metrics={}
 log_state={}
 log_type=["mean","best","champion"]
@@ -28,7 +28,7 @@ def on_created(event):
          triton.build_experiment()
 
    #csv files have stats we are interested in 
-   if event.src_path.endswith("csv") and island in event.src_path : 
+   if event.src_path.endswith("csv") and island_str in event.src_path : 
       logname = str(event.src_path.split("/")[-1])
       log_state[logname]=0
       print(f"log_state is now: {log_state}")
@@ -40,7 +40,7 @@ def on_modified(event):
    #we have some logging work to do 
  
    #Scope-limit csv files we care about for now 
-   if event.src_path.endswith(".csv") and island in event.src_path:
+   if event.src_path.endswith(".csv") and island_str in event.src_path:
       print(f"{event.src_path} has been modified")
       logpath = event.src_path
       logname=str(event.src_path.split("/")[-1])
@@ -49,8 +49,8 @@ def on_modified(event):
  
    #if this is the first time this file has been read, get the column names to attach to the neptune log_metrics
       if log_state[logname] == 0:
-         pdlog=pd.read_csv(logpath)
-         log_metrics[logname]=list(pdlog.columns)
+         csvlog=pd.read_csv(logpath)
+         log_metrics[logname]=list(csvlog.columns)
          log_state[logname] = 1
 
       lt = [t for t in log_type if t in logpath]
@@ -58,33 +58,50 @@ def on_modified(event):
       if len(lt) == 1:
          logline=tailer.tail(open(logpath),1)[0]
          stats=[float(l) for l in logline.strip().split(",")]
-         triton.log_stats_to_experiment(lt[0],log_metrics[logname],stats,logpath)
+         triton.log_stats_to_experiment(lt[0],log_metrics[logname],stats,logpath,island_str)
 
 if __name__ == "__main__":
-    # create the event handler
-    patterns="*.csv"
-    ignore_patterns = ["^./.git"]
-    ignore_directories = False
-    case_sensitive = True
-#    my_event_handler = RegexMatchingEventHandler(ignore_regexes=ignore_patterns, ignore_directories=ignore_directories, case_sensitive=case_sensitive)
-    my_event_handler = PatternMatchingEventHandler(patterns, ignore_patterns, ignore_directories, case_sensitive)
 
-    my_event_handler.on_created = on_created
-    my_event_handler.on_modified = on_modified
+    ap = argparse.ArgumentParser(description="File watcher for pushing Berbalang stats into Neptune")
+ 
+#    ap.add_argument('--config',default="config.toml", help="specify alt config file to use")
+    ap.add_argument('--no-wait',default=False,help="skip waiting for files to be created, start tailing logs")
+    ap.add_argument('--island',default="island_0",help="specify the island_str to process")
+    ap.add_argument('--batch',default=False,help="Process logs in batch mode. Assumes experiment run is over,does not create FileWatcher") 
+
+    args=ap.parse_args()
+    island_str=args.island
+
+    print(args)
+   
+    if not args.batch:
+ 
+    # create the event handler
+       patterns="*.csv"
+       ignore_patterns = ["^./.git"]
+       ignore_directories = False
+       case_sensitive = True
+     # my_event_handler = RegexMatchingEventHandler(ignore_regexes=ignore_patterns, ignore_directories=ignore_directories, case_sensitive=case_sensitive)
+       my_event_handler = PatternMatchingEventHandler(patterns, ignore_patterns, ignore_directories, case_sensitive)
+
+       my_event_handler.on_created = on_created
+       my_event_handler.on_modified = on_modified
+
+    
 
     # create an observer
-    path = "/home/armadilo/logs/berbalang/Roper/Tournament"
-    go_recursively = True
-    my_observer = Observer()
-    my_observer.schedule(my_event_handler, path, recursive=go_recursively)
+       path = "/home/armadilo/logs/berbalang/Roper/Tournament"
+       go_recursively = True
+       my_observer = Observer()
+       my_observer.schedule(my_event_handler, path, recursive=go_recursively)
 
-    triton = triton.Triton(path,0,"special-circumstances","sandbox")
+       triton = triton.Triton(path,0,"special-circumstances","sandbox")
 
-    my_observer.start()
-    try:
-        while True:
-            time.sleep(5)
-    except:
-        my_observer.stop()
-        print("Observer Stopped")
-    my_observer.join()
+       my_observer.start()
+       try:
+           while True:
+               time.sleep(5)
+       except:
+           my_observer.stop()
+           print("Observer Stopped")
+       my_observer.join()
